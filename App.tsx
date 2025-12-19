@@ -195,10 +195,14 @@ const Dashboard = ({ user }: { user: User }) => {
   // Fetch initial data
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [recs, depts] = await Promise.all([
+    // Explicitly handle Promise.all results to avoid TS tuple iteration error with destructuring unknown
+    const results = await Promise.all([
       dbService.getActiveRecords(),
       dbService.getDepartments()
-    ]) as [ExpenseRecord[], DepartmentMap];
+    ]);
+    const recs = results[0] as ExpenseRecord[];
+    const depts = results[1] as DepartmentMap;
+    
     setRecords(recs);
     setDepartments(depts);
     setLoading(false);

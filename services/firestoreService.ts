@@ -17,26 +17,31 @@ import { ExpenseRecord, Settlement, DepartmentMap } from '../types';
 import { DEPARTMENTS as DEFAULT_DEPARTMENTS } from '../constants';
 
 // --- Configuration ---
-// Fix: Safely access import.meta.env to prevent runtime crashes if it is undefined.
-// We default to an empty object if env is missing.
-const env = (import.meta as any).env || {};
+// Note: We access import.meta.env properties directly to allow Vite to perform static replacement during build.
+// Using a safe access pattern to prevent runtime crashes if import.meta.env is undefined in some environments.
+// We cast import.meta to any to avoid "Property 'env' does not exist on type 'ImportMeta'" TS error.
+
+const getEnv = (key: string) => {
+  const meta = import.meta as any;
+  return (meta.env && meta.env[key]) ? meta.env[key] : '';
+};
 
 const firebaseConfig = {
-  apiKey: env.VITE_FIREBASE_API_KEY,
-  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: env.VITE_FIREBASE_APP_ID
+  apiKey: getEnv('VITE_FIREBASE_API_KEY'),
+  authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN'),
+  projectId: getEnv('VITE_FIREBASE_PROJECT_ID'),
+  storageBucket: getEnv('VITE_FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
+  appId: getEnv('VITE_FIREBASE_APP_ID')
 };
 
 // Initialize Firebase
-let db: any; // Allow generic typing to handle initialization failure case smoothly
+let db: any; 
 
 try {
+    // Check if config is valid (at least apiKey must exist)
     if (!firebaseConfig.apiKey) {
-        console.warn("CloudAcc: Firebase API Key is missing. Check your .env file or environment variables.");
-        // We don't throw here to avoid white-screen crash, but subsequent calls will fail or need handling.
+        console.warn("CloudAcc: Firebase API Key is missing. The app will run in read-only/offline mode or show empty data.");
     } else {
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
@@ -48,7 +53,7 @@ try {
 // Helper to check DB availability
 const checkDb = () => {
     if (!db) {
-        console.error("Firestore is not initialized. Check configuration.");
+        // Silent fail or console log only once could be better, but for debugging:
         return false;
     }
     return true;
@@ -83,7 +88,7 @@ export const dbService = {
   },
 
   async saveDepartments(data: DepartmentMap): Promise<void> {
-    if (!checkDb()) return;
+    if (!checkDb()) throw new Error("Database not connected (Missing API Key)");
     try {
       const docRef = doc(db, DEPTS_COLLECTION, DEPTS_DOC_ID);
       await setDoc(docRef, data);
@@ -123,7 +128,7 @@ export const dbService = {
   },
 
   async addRecord(record: Omit<ExpenseRecord, 'id' | 'createdAt' | 'isSettled'>): Promise<ExpenseRecord> {
-    if (!checkDb()) throw new Error("Database not connected");
+    if (!checkDb()) throw new Error("Database not connected (Missing API Key)");
     try {
       const newRecordData = {
         ...record,
