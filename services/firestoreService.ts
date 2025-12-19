@@ -17,8 +17,9 @@ import { ExpenseRecord, Settlement, DepartmentMap } from '../types';
 import { DEPARTMENTS as DEFAULT_DEPARTMENTS } from '../constants';
 
 // --- Configuration ---
-// Make sure to set these variables in your .env file
-const env = (import.meta as any).env;
+// Fix: Safely access import.meta.env to prevent runtime crashes if it is undefined.
+// We default to an empty object if env is missing.
+const env = (import.meta as any).env || {};
 
 const firebaseConfig = {
   apiKey: env.VITE_FIREBASE_API_KEY,
@@ -30,9 +31,28 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-// Note: If config is missing, this might throw. Ensure .env is set.
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+let db: any; // Allow generic typing to handle initialization failure case smoothly
+
+try {
+    if (!firebaseConfig.apiKey) {
+        console.warn("CloudAcc: Firebase API Key is missing. Check your .env file or environment variables.");
+        // We don't throw here to avoid white-screen crash, but subsequent calls will fail or need handling.
+    } else {
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+    }
+} catch (e) {
+    console.error("CloudAcc: Failed to initialize Firebase.", e);
+}
+
+// Helper to check DB availability
+const checkDb = () => {
+    if (!db) {
+        console.error("Firestore is not initialized. Check configuration.");
+        return false;
+    }
+    return true;
+};
 
 // --- Collection References ---
 const DEPTS_COLLECTION = 'settings';
@@ -44,6 +64,7 @@ export const dbService = {
   // --- Departments & Personnel ---
   
   async getDepartments(): Promise<DepartmentMap> {
+    if (!checkDb()) return DEFAULT_DEPARTMENTS;
     try {
       const docRef = doc(db, DEPTS_COLLECTION, DEPTS_DOC_ID);
       const docSnap = await getDoc(docRef);
@@ -62,6 +83,7 @@ export const dbService = {
   },
 
   async saveDepartments(data: DepartmentMap): Promise<void> {
+    if (!checkDb()) return;
     try {
       const docRef = doc(db, DEPTS_COLLECTION, DEPTS_DOC_ID);
       await setDoc(docRef, data);
@@ -74,6 +96,7 @@ export const dbService = {
   // --- Expense Records ---
 
   async getActiveRecords(): Promise<ExpenseRecord[]> {
+    if (!checkDb()) return [];
     try {
       const q = query(
         collection(db, RECORDS_COLLECTION),
@@ -93,17 +116,18 @@ export const dbService = {
   },
 
   async getAllRecords(): Promise<ExpenseRecord[]> {
-    // Caution: This might be large
+    if (!checkDb()) return [];
     const q = query(collection(db, RECORDS_COLLECTION), orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ExpenseRecord));
   },
 
   async addRecord(record: Omit<ExpenseRecord, 'id' | 'createdAt' | 'isSettled'>): Promise<ExpenseRecord> {
+    if (!checkDb()) throw new Error("Database not connected");
     try {
       const newRecordData = {
         ...record,
-        createdAt: Date.now(), // Store as number for consistency with types, or use Timestamp.now().toMillis()
+        createdAt: Date.now(), 
         isSettled: false,
       };
 
@@ -122,6 +146,7 @@ export const dbService = {
   // --- Settlements (Closing the books) ---
 
   async getSettlements(): Promise<Settlement[]> {
+    if (!checkDb()) return [];
     try {
       const q = query(
         collection(db, SETTLEMENTS_COLLECTION),
@@ -136,9 +161,8 @@ export const dbService = {
   },
 
   async getSettlementDetails(settlementId: string): Promise<ExpenseRecord[]> {
+    if (!checkDb()) return [];
     try {
-      // Find records that belong to this settlement
-      // Note: This requires an index on 'settlementId' + 'createdAt' ideally, or just 'settlementId'
       const q = query(
         collection(db, RECORDS_COLLECTION),
         where('settlementId', '==', settlementId),
@@ -153,6 +177,7 @@ export const dbService = {
   },
 
   async createSettlement(userEmail: string): Promise<Settlement | null> {
+    if (!checkDb()) return null;
     try {
       // 1. Get all unsettled records
       const q = query(
