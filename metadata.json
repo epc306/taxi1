@@ -1,0 +1,5 @@
+{
+  "name": "CloudAcc - 雲端記帳通",
+  "description": "A professional accounting and expense tracking application with departmental management, settlement (closing) features, and Excel export capabilities. Designed for team collaboration.",
+  "requestFramePermissions": []
+}
