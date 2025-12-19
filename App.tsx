@@ -24,7 +24,8 @@ import {
 
 import { User, ExpenseRecord, Settlement, DepartmentMap } from './types';
 import { APP_NAME, CURRENCY_SYMBOL } from './constants';
-import { dbService } from './services/mockDb';
+// CHANGED: Import from firestoreService instead of mockDb
+import { dbService } from './services/firestoreService';
 import { exportToExcel } from './utils/exportUtils';
 import { Button } from './components/Button';
 
@@ -197,7 +198,7 @@ const Dashboard = ({ user }: { user: User }) => {
     const [recs, depts] = await Promise.all([
       dbService.getActiveRecords(),
       dbService.getDepartments()
-    ]);
+    ]) as [ExpenseRecord[], DepartmentMap];
     setRecords(recs);
     setDepartments(depts);
     setLoading(false);
@@ -582,7 +583,7 @@ const HistoryView = () => {
     const [sets, depts] = await Promise.all([
       dbService.getSettlements(),
       dbService.getDepartments()
-    ]);
+    ]) as [Settlement[], DepartmentMap];
     setSettlements(sets);
     setDepartments(depts);
     setLoading(false);
