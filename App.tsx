@@ -220,7 +220,7 @@ const Dashboard = ({ user }: { user: User }) => {
   }, [departments]);
 
   const getPersonDept = useCallback((name: string) => {
-    for (const [dept, people] of Object.entries(departments)) {
+    for (const [dept, people] of Object.entries(departments) as [string, string[]][]) {
       if (people.includes(name)) return dept;
     }
     return '其他部門'; 
@@ -590,7 +590,7 @@ const HistoryView = () => {
 
   // Helper to find department for a person (reused from Dashboard logic)
   const getPersonDept = useCallback((name: string) => {
-    for (const [dept, people] of Object.entries(departments)) {
+    for (const [dept, people] of Object.entries(departments) as [string, string[]][]) {
       if (people.includes(name)) return dept;
     }
     return '其他'; 
@@ -898,7 +898,7 @@ const SettingsView = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {loading ? (
            <div className="text-center text-slate-400 col-span-2">載入中...</div>
-        ) : Object.entries(departments).map(([deptName, people]) => (
+        ) : (Object.entries(departments) as [string, string[]][]).map(([deptName, people]) => (
           <div key={deptName} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
              <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center h-16">
                <div className="flex items-center gap-2 flex-1 min-w-0">
