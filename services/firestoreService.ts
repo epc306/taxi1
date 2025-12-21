@@ -11,36 +11,50 @@ import {
   where, 
   orderBy, 
   getDocs, 
-  writeBatch, 
-  Timestamp 
+  writeBatch
 } from 'firebase/firestore';
 import { ExpenseRecord, Settlement, DepartmentMap } from '../types';
 import { DEPARTMENTS as DEFAULT_DEPARTMENTS } from '../constants';
 
 // --- Configuration ---
-// Accessing import.meta.env safely prevents runtime crashes if it's undefined.
-// Using the "&&" pattern ensures Vite can still statically replace the 'import.meta.env.VITE_...' string token.
 
+// Helper function to safely get env vars without crashing if import.meta.env is undefined
+// This handles cases where the build process didn't strictly replace the variables.
+const getEnv = (key: string) => {
+  try {
+    // We access import.meta.env explicitly so Vite can statically replace it.
+    // The conditional checks prevent runtime errors if replacement didn't happen.
+    if (import.meta && import.meta.env) {
+      return import.meta.env[key];
+    }
+  } catch (e) {
+    return undefined;
+  }
+  return undefined;
+};
+
+// Explicitly listing keys for Vite's static analysis
 const firebaseConfig = {
-  apiKey: (import.meta.env && import.meta.env.VITE_FIREBASE_API_KEY),
-  authDomain: (import.meta.env && import.meta.env.VITE_FIREBASE_AUTH_DOMAIN),
-  projectId: (import.meta.env && import.meta.env.VITE_FIREBASE_PROJECT_ID),
-  storageBucket: (import.meta.env && import.meta.env.VITE_FIREBASE_STORAGE_BUCKET),
-  messagingSenderId: (import.meta.env && import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID),
-  appId: (import.meta.env && import.meta.env.VITE_FIREBASE_APP_ID)
+  apiKey: import.meta.env?.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env?.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env?.VITE_FIREBASE_APP_ID
 };
 
 // Initialize Firebase
 let db: any; 
 
 try {
-    // Check if config is valid (at least apiKey must exist)
-    if (!firebaseConfig.apiKey) {
-        console.warn("CloudAcc: Firebase API Key is missing. The app will run in read-only/offline mode or show empty data.");
-        console.warn("If you are running in production, ensure .env variables are set and VITE_ prefix is used.");
+    // Check if config is valid (at least apiKey must exist and be a string)
+    if (!firebaseConfig.apiKey || typeof firebaseConfig.apiKey !== 'string' || firebaseConfig.apiKey.includes("undefined")) {
+        console.warn("CloudAcc: Firebase API Key is missing or invalid. Running in OFFLINE/DEMO mode.");
+        console.warn("To enable database, ensure .env variables are set in your build environment (GitHub Secrets).");
     } else {
         const app = initializeApp(firebaseConfig);
         db = getFirestore(app);
+        console.log("CloudAcc: Firebase initialized successfully.");
     }
 } catch (e) {
     console.error("CloudAcc: Failed to initialize Firebase.", e);
